@@ -32,7 +32,6 @@ db.sqlite3-journal
 /staticfiles
 
 # Environment
-.env
 .env.local
 .env.*.local
 
