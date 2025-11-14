@@ -10,6 +10,11 @@ from .serializers import (
     TimeEntrySerializer, TaskCommentSerializer, TaskAttachmentSerializer
 )
 from accounts.permissions import IsCompanyAdmin, IsContractorOrAdmin, IsOwnerOrAdmin
+from utils.file_validators import (
+    validate_file_size, validate_mime_type, validate_image_file,
+    get_file_type_from_mime, is_image_file, MAX_ATTACHMENT_SIZE_MB,
+    ALLOWED_DOCUMENT_MIME_TYPES, ALLOWED_IMAGE_MIME_TYPES
+)
 
 
 class TaskViewSet(viewsets.ModelViewSet):
@@ -85,9 +90,19 @@ class TaskViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        import os
-        file_ext = os.path.splitext(file.name)[1]
-        file_type = file_ext[1:] if file_ext else 'unknown'
+        # Validate file size
+        validate_file_size(file, MAX_ATTACHMENT_SIZE_MB)
+        
+        # Validate MIME type (attachments can be documents or images)
+        allowed_mime_types = ALLOWED_DOCUMENT_MIME_TYPES + ALLOWED_IMAGE_MIME_TYPES
+        validate_mime_type(file, allowed_mime_types)
+        
+        # If it's an image, validate it's a real image
+        if is_image_file(file):
+            validate_image_file(file)
+        
+        # Get file type from MIME
+        file_type = get_file_type_from_mime(file)
         
         attachment = TaskAttachment.objects.create(
             task=task,

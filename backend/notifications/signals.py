@@ -5,7 +5,15 @@ from .models import Notification
 from tasks.models import Task
 from documents.models import Document
 from projects.models import Blueprint
-from .tasks import send_notification_email
+
+try:
+    from .tasks import send_notification_email
+    CELERY_AVAILABLE = True
+except ImportError:
+    CELERY_AVAILABLE = False
+    def send_notification_email(*args, **kwargs):
+        # No-op if celery is not available
+        pass
 
 
 @receiver(post_save, sender=Task)
@@ -81,7 +89,10 @@ def document_uploaded(sender, instance, created, **kwargs):
                     )
         
         # Send email notification
-        send_notification_email.delay(instance.id, 'DOCUMENT_UPLOADED')
+        if CELERY_AVAILABLE:
+            send_notification_email.delay(instance.id, 'DOCUMENT_UPLOADED')
+        else:
+            send_notification_email(instance.id, 'DOCUMENT_UPLOADED')
 
 
 @receiver(post_save, sender=Document)
@@ -98,7 +109,10 @@ def document_reviewed(sender, instance, **kwargs):
         )
         
         # Send email notification
-        send_notification_email.delay(instance.id, f'DOCUMENT_{instance.status}')
+        if CELERY_AVAILABLE:
+            send_notification_email.delay(instance.id, f'DOCUMENT_{instance.status}')
+        else:
+            send_notification_email(instance.id, f'DOCUMENT_{instance.status}')
 
 
 @receiver(post_save, sender=Blueprint)
@@ -119,5 +133,8 @@ def blueprint_uploaded(sender, instance, created, **kwargs):
                 )
         
         # Send email notification
-        send_notification_email.delay(instance.id, 'BLUEPRINT_UPLOADED')
+        if CELERY_AVAILABLE:
+            send_notification_email.delay(instance.id, 'BLUEPRINT_UPLOADED')
+        else:
+            send_notification_email(instance.id, 'BLUEPRINT_UPLOADED')
 

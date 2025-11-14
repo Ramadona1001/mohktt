@@ -1,4 +1,12 @@
-from celery import shared_task
+try:
+    from celery import shared_task
+    CELERY_AVAILABLE = True
+except ImportError:
+    CELERY_AVAILABLE = False
+    # Fallback decorator if celery is not available
+    def shared_task(func):
+        return func
+
 from django.core.mail import send_mail
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType

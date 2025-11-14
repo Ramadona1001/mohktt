@@ -1,12 +1,18 @@
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 from django.db.models import Q
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Document, DocumentVersion
 from .serializers import DocumentSerializer, DocumentListSerializer, DocumentVersionSerializer
 from accounts.permissions import IsCompanyAdmin, IsContractorOrAdmin, IsDocumentController
+from utils.file_validators import (
+    validate_file_size, validate_mime_type, validate_image_file,
+    get_file_type_from_mime, is_image_file, MAX_ATTACHMENT_SIZE_MB,
+    ALLOWED_DOCUMENT_MIME_TYPES, ALLOWED_IMAGE_MIME_TYPES
+)
 import os
 
 
@@ -47,13 +53,21 @@ class DocumentViewSet(viewsets.ModelViewSet):
         file = self.request.FILES.get('file')
         
         if not file:
-            return Response(
-                {"error": "No file provided."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            raise ValidationError({"file": "No file provided."})
         
-        file_ext = os.path.splitext(file.name)[1]
-        file_type = file_ext[1:] if file_ext else 'unknown'
+        # Validate file size (documents use attachment limit)
+        validate_file_size(file, MAX_ATTACHMENT_SIZE_MB)
+        
+        # Validate MIME type (documents can be PDF, DOCX, images, etc.)
+        allowed_mime_types = ALLOWED_DOCUMENT_MIME_TYPES + ALLOWED_IMAGE_MIME_TYPES
+        validate_mime_type(file, allowed_mime_types)
+        
+        # If it's an image, validate it's a real image
+        if is_image_file(file):
+            validate_image_file(file)
+        
+        # Get file type from MIME
+        file_type = get_file_type_from_mime(file)
         
         # Determine side
         side = 'CONTRACTOR' if user.is_contractor else 'COMPANY'
@@ -117,6 +131,17 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 {"error": "No file provided."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+        # Validate file size
+        validate_file_size(file, MAX_ATTACHMENT_SIZE_MB)
+        
+        # Validate MIME type
+        allowed_mime_types = ALLOWED_DOCUMENT_MIME_TYPES + ALLOWED_IMAGE_MIME_TYPES
+        validate_mime_type(file, allowed_mime_types)
+        
+        # If it's an image, validate it's a real image
+        if is_image_file(file):
+            validate_image_file(file)
         
         # Get next version number
         last_version = document.versions.order_by('-version_number').first()

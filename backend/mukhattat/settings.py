@@ -82,16 +82,26 @@ WSGI_APPLICATION = 'mukhattat.wsgi.application'
 ASGI_APPLICATION = 'mukhattat.asgi.application'
 
 # Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': env('DB_NAME', default='mukhattat_db'),
-        'USER': env('DB_USER', default='postgres'),
-        'PASSWORD': env('DB_PASSWORD', default='postgres'),
-        'HOST': env('DB_HOST', default='localhost'),
-        'PORT': env('DB_PORT', default='5432'),
+# Using SQLite for quick testing - switch to PostgreSQL for production
+USE_POSTGRES = env('USE_POSTGRES', default=False)
+if USE_POSTGRES:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': env('DB_NAME', default='mukhattat_db'),
+            'USER': env('DB_USER', default='postgres'),
+            'PASSWORD': env('DB_PASSWORD', default='postgres'),
+            'HOST': env('DB_HOST', default='localhost'),
+            'PORT': env('DB_PORT', default='5432'),
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [

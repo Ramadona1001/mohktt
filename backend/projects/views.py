@@ -8,8 +8,16 @@ from .serializers import (
     BlueprintSerializer, PinSerializer
 )
 from accounts.permissions import IsCompanyAdmin, IsContractorOrAdmin
+from utils.file_validators import (
+    validate_file_size, validate_mime_type, validate_image_file,
+    get_file_type_from_mime, is_image_file, MAX_BLUEPRINT_SIZE_MB,
+    ALLOWED_BLUEPRINT_MIME_TYPES
+)
 from PIL import Image
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -67,9 +75,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Determine file type
-        file_ext = os.path.splitext(file.name)[1].lower()
-        file_type = file_ext[1:] if file_ext else 'unknown'
+        # Validate file size
+        validate_file_size(file, MAX_BLUEPRINT_SIZE_MB)
+        
+        # Validate MIME type
+        validate_mime_type(file, ALLOWED_BLUEPRINT_MIME_TYPES)
+        
+        # If it's an image, validate it's a real image and get dimensions
+        if is_image_file(file):
+            validate_image_file(file)
+        
+        # Get file type from MIME
+        file_type = get_file_type_from_mime(file)
         
         blueprint = Blueprint.objects.create(
             project=project,
@@ -79,13 +96,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
         )
         
         # If it's an image, get dimensions
-        if file_type in ['jpg', 'jpeg', 'png']:
+        if is_image_file(file):
             try:
                 img = Image.open(blueprint.file)
                 blueprint.width, blueprint.height = img.size
                 blueprint.save()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(
+                    f"Failed to extract image dimensions for blueprint {blueprint.id}: {e}",
+                    exc_info=True
+                )
         
         serializer = BlueprintSerializer(blueprint)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
