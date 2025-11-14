@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { getTasks, createTask, updateTaskStatus } from '../services/taskService'
-import { CheckSquare, Plus } from 'lucide-react'
+import { CheckSquare, Plus, LayoutGrid, List } from 'lucide-react'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
+import KanbanBoard from '../components/KanbanBoard'
 
 export default function Tasks() {
   const queryClient = useQueryClient()
+  const [viewMode, setViewMode] = useState('kanban') // 'kanban' or 'list'
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
@@ -39,6 +41,9 @@ export default function Tasks() {
     onSuccess: () => {
       queryClient.invalidateQueries(['tasks'])
       toast.success('Task status updated!')
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.detail || 'Failed to update task status')
     },
   })
 
@@ -83,13 +88,40 @@ export default function Tasks() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Tasks</h1>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="btn btn-primary flex items-center space-x-2"
-        >
-          <Plus className="w-5 h-5" />
-          <span>New Task</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          {/* View Mode Toggle */}
+          <div className="flex items-center bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('kanban')}
+              className={`p-2 rounded ${
+                viewMode === 'kanban'
+                  ? 'bg-white shadow-sm text-primary-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+              title="Kanban View"
+            >
+              <LayoutGrid className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2 rounded ${
+                viewMode === 'list'
+                  ? 'bg-white shadow-sm text-primary-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+              title="List View"
+            >
+              <List className="w-5 h-5" />
+            </button>
+          </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="btn btn-primary flex items-center space-x-2"
+          >
+            <Plus className="w-5 h-5" />
+            <span>New Task</span>
+          </button>
+        </div>
       </div>
 
       {/* Create Task Modal */}
@@ -151,56 +183,68 @@ export default function Tasks() {
         </div>
       )}
 
-      <div className="card">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b">
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Title</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Project</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Department</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Priority</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Due Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data?.results?.map((task) => (
-                <tr key={task.id} className="border-b hover:bg-gray-50">
-                  <td className="py-3 px-4">
-                    <Link
-                      to={`/tasks/${task.id}`}
-                      className="font-medium text-primary-600 hover:text-primary-700"
-                    >
-                      {task.title}
-                    </Link>
-                  </td>
-                  <td className="py-3 px-4 text-gray-600">{task.project_name}</td>
-                  <td className="py-3 px-4 text-gray-600">{task.department_name || 'N/A'}</td>
-                  <td className="py-3 px-4">
-                    <select
-                      value={task.status}
-                      onChange={(e) => handleStatusChange(task.id, e.target.value)}
-                      className={`px-2 py-1 text-xs rounded-full border-0 ${getStatusColor(task.status)} cursor-pointer`}
-                    >
-                      <option value="PENDING">Pending</option>
-                      <option value="IN_PROGRESS">In Progress</option>
-                      <option value="COMPLETED">Completed</option>
-                      <option value="DELAYED">Delayed</option>
-                    </select>
-                  </td>
-                  <td className={`py-3 px-4 font-medium ${getPriorityColor(task.priority)}`}>
-                    {task.priority}
-                  </td>
-                  <td className="py-3 px-4 text-gray-600">
-                    {task.due_date ? format(new Date(task.due_date), 'MMM dd, yyyy') : 'N/A'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Kanban View */}
+      {viewMode === 'kanban' ? (
+        <div className="card p-0 overflow-hidden">
+          <KanbanBoard
+            tasks={data}
+            onStatusChange={handleStatusChange}
+            isLoading={isLoading}
+          />
         </div>
-      </div>
+      ) : (
+        /* List View */
+        <div className="card">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Title</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Project</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Department</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Priority</th>
+                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Due Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data?.results?.map((task) => (
+                  <tr key={task.id} className="border-b hover:bg-gray-50">
+                    <td className="py-3 px-4">
+                      <Link
+                        to={`/tasks/${task.id}`}
+                        className="font-medium text-primary-600 hover:text-primary-700"
+                      >
+                        {task.title}
+                      </Link>
+                    </td>
+                    <td className="py-3 px-4 text-gray-600">{task.project_name}</td>
+                    <td className="py-3 px-4 text-gray-600">{task.department_name || 'N/A'}</td>
+                    <td className="py-3 px-4">
+                      <select
+                        value={task.status}
+                        onChange={(e) => handleStatusChange(task.id, e.target.value)}
+                        className={`px-2 py-1 text-xs rounded-full border-0 ${getStatusColor(task.status)} cursor-pointer`}
+                      >
+                        <option value="PENDING">Pending</option>
+                        <option value="IN_PROGRESS">In Progress</option>
+                        <option value="COMPLETED">Completed</option>
+                        <option value="DELAYED">Delayed</option>
+                      </select>
+                    </td>
+                    <td className={`py-3 px-4 font-medium ${getPriorityColor(task.priority)}`}>
+                      {task.priority}
+                    </td>
+                    <td className="py-3 px-4 text-gray-600">
+                      {task.due_date ? format(new Date(task.due_date), 'MMM dd, yyyy') : 'N/A'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {data?.results?.length === 0 && (
         <div className="text-center py-12">
