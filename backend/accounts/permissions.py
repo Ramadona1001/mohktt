@@ -56,3 +56,26 @@ class IsDocumentController(permissions.BasePermission):
             request.user.is_document_controller
         )
 
+
+class IsConsultant(permissions.BasePermission):
+    """
+    Permission check for Consultant role.
+    """
+    def has_permission(self, request, view):
+        return (
+            request.user and
+            request.user.is_authenticated and
+            request.user.is_consultant
+        )
+
+
+class IsConsultantOrAdmin(permissions.BasePermission):
+    """
+    Permission check for Consultant or Company Admin roles.
+    """
+    def has_permission(self, request, view):
+        return (
+            request.user and
+            request.user.is_authenticated and
+            (request.user.is_consultant or request.user.is_company_admin)
+        )

@@ -15,7 +15,15 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        return Notification.objects.filter(user=self.request.user)
+        queryset = Notification.objects.filter(user=self.request.user)
+        
+        # Filter by read status if provided
+        is_read = self.request.query_params.get('is_read')
+        if is_read is not None:
+            is_read_bool = is_read.lower() == 'true'
+            queryset = queryset.filter(is_read=is_read_bool)
+        
+        return queryset
     
     @action(detail=True, methods=['post'])
     def mark_read(self, request, pk=None):

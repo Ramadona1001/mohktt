@@ -8,6 +8,9 @@ from .serializers import (
     BlueprintSerializer, PinSerializer
 )
 from accounts.permissions import IsCompanyAdmin, IsContractorOrAdmin
+from django.utils import timezone
+from datetime import timedelta
+from django.conf import settings
 from utils.file_validators import (
     validate_file_size, validate_mime_type, validate_image_file,
     get_file_type_from_mime, is_image_file, MAX_BLUEPRINT_SIZE_MB,
@@ -59,14 +62,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def upload_blueprint(self, request, pk=None):
-        """Upload a blueprint for the project."""
+        """Upload or replace a blueprint for the project."""
         project = self.get_object()
-        
-        if hasattr(project, 'blueprint'):
-            return Response(
-                {"error": "Blueprint already exists. Delete it first to upload a new one."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
         
         file = request.FILES.get('file')
         if not file:
@@ -88,12 +85,40 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # Get file type from MIME
         file_type = get_file_type_from_mime(file)
         
-        blueprint = Blueprint.objects.create(
-            project=project,
-            file=file,
-            file_type=file_type,
-            uploaded_by=request.user
-        )
+        # Set review deadline (10 days or configurable)
+        review_days = getattr(settings, 'DOCUMENT_REVIEW_TIMER_DAYS', 10)
+        review_deadline = timezone.now() + timedelta(days=review_days)
+        
+        # Check if blueprint already exists
+        if hasattr(project, 'blueprint'):
+            # Update existing blueprint
+            blueprint = project.blueprint
+            # Delete old file if it exists
+            if blueprint.file:
+                blueprint.file.delete(save=False)
+            
+            blueprint.file = file
+            blueprint.file_type = file_type
+            blueprint.uploaded_by = request.user
+            blueprint.review_status = 'PENDING'  # Reset to pending when replaced
+            blueprint.review_deadline = review_deadline
+            blueprint.reviewed_by = None
+            blueprint.reviewed_at = None
+            blueprint.review_notes = ''
+            blueprint.uploaded_at = timezone.now()
+            blueprint.save()
+            created = False
+        else:
+            # Create new blueprint
+            blueprint = Blueprint.objects.create(
+                project=project,
+                file=file,
+                file_type=file_type,
+                uploaded_by=request.user,
+                review_status='PENDING',
+                review_deadline=review_deadline
+            )
+            created = True
         
         # If it's an image, get dimensions
         if is_image_file(file):
@@ -107,8 +132,156 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     exc_info=True
                 )
         
+        # Send notifications to Company Admin and Consultant
+        from notifications.signals import blueprint_uploaded
+        blueprint_uploaded.send(sender=Blueprint, instance=blueprint, created=created)
+        
         serializer = BlueprintSerializer(blueprint)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['post'])
+    def approve_blueprint(self, request, pk=None):
+        """Approve a blueprint (Company Admin or Consultant only)."""
+        project = self.get_object()
+        if not hasattr(project, 'blueprint'):
+            return Response(
+                {"error": "No blueprint found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        blueprint = project.blueprint
+        user = request.user
+        
+        # Check permissions
+        if not (user.is_company_admin or user.is_consultant):
+            return Response(
+                {"error": "Only Company Admin or Consultant can approve blueprints."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Check if consultant is assigned to this project
+        if user.is_consultant and project.consultant != user:
+            return Response(
+                {"error": "You are not assigned as consultant for this project."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        blueprint.review_status = 'APPROVED'
+        blueprint.reviewed_by = user
+        blueprint.reviewed_at = timezone.now()
+        blueprint.review_notes = request.data.get('notes', '')
+        blueprint.save()
+        
+        # Send notification
+        from notifications.models import Notification
+        from django.contrib.contenttypes.models import ContentType
+        Notification.objects.create(
+            user=blueprint.uploaded_by,
+            notification_type='BLUEPRINT_APPROVED',
+            title=f'Blueprint Approved: {project.name}',
+            message=f'Your blueprint for project "{project.name}" has been approved.',
+            content_type=ContentType.objects.get_for_model(Blueprint),
+            object_id=blueprint.id
+        )
+        
+        serializer = BlueprintSerializer(blueprint)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def reject_blueprint(self, request, pk=None):
+        """Reject a blueprint (Company Admin or Consultant only)."""
+        project = self.get_object()
+        if not hasattr(project, 'blueprint'):
+            return Response(
+                {"error": "No blueprint found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        blueprint = project.blueprint
+        user = request.user
+        
+        # Check permissions
+        if not (user.is_company_admin or user.is_consultant):
+            return Response(
+                {"error": "Only Company Admin or Consultant can reject blueprints."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Check if consultant is assigned to this project
+        if user.is_consultant and project.consultant != user:
+            return Response(
+                {"error": "You are not assigned as consultant for this project."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        blueprint.review_status = 'REJECTED'
+        blueprint.reviewed_by = user
+        blueprint.reviewed_at = timezone.now()
+        blueprint.review_notes = request.data.get('notes', '')
+        blueprint.save()
+        
+        # Send notification
+        from notifications.models import Notification
+        from django.contrib.contenttypes.models import ContentType
+        Notification.objects.create(
+            user=blueprint.uploaded_by,
+            notification_type='BLUEPRINT_REJECTED',
+            title=f'Blueprint Rejected: {project.name}',
+            message=f'Your blueprint for project "{project.name}" has been rejected. Notes: {blueprint.review_notes}',
+            content_type=ContentType.objects.get_for_model(Blueprint),
+            object_id=blueprint.id
+        )
+        
+        serializer = BlueprintSerializer(blueprint)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def request_blueprint_modification(self, request, pk=None):
+        """Request blueprint modification (Company Admin or Consultant only)."""
+        project = self.get_object()
+        if not hasattr(project, 'blueprint'):
+            return Response(
+                {"error": "No blueprint found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        blueprint = project.blueprint
+        user = request.user
+        
+        # Check permissions
+        if not (user.is_company_admin or user.is_consultant):
+            return Response(
+                {"error": "Only Company Admin or Consultant can request modifications."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Check if consultant is assigned to this project
+        if user.is_consultant and project.consultant != user:
+            return Response(
+                {"error": "You are not assigned as consultant for this project."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        blueprint.review_status = 'MODIFICATION_REQUESTED'
+        blueprint.reviewed_by = user
+        blueprint.reviewed_at = timezone.now()
+        blueprint.review_notes = request.data.get('notes', '')
+        blueprint.save()
+        
+        # Send notification
+        from notifications.models import Notification
+        from django.contrib.contenttypes.models import ContentType
+        Notification.objects.create(
+            user=blueprint.uploaded_by,
+            notification_type='BLUEPRINT_MODIFICATION_REQUESTED',
+            title=f'Blueprint Modification Requested: {project.name}',
+            message=f'Modifications requested for blueprint of project "{project.name}". Notes: {blueprint.review_notes}',
+            content_type=ContentType.objects.get_for_model(Blueprint),
+            object_id=blueprint.id
+        )
+        
+        serializer = BlueprintSerializer(blueprint)
+        return Response(serializer.data)
     
     @action(detail=True, methods=['delete'])
     def delete_blueprint(self, request, pk=None):
@@ -121,6 +294,99 @@ class ProjectViewSet(viewsets.ModelViewSet):
             {"error": "No blueprint found."},
             status=status.HTTP_404_NOT_FOUND
         )
+    
+    @action(detail=True, methods=['post'])
+    def create_task_from_location(self, request, pk=None):
+        """Create a task from a blueprint location (creates pin + task)."""
+        project = self.get_object()
+        
+        # Check if blueprint exists
+        if not hasattr(project, 'blueprint'):
+            return Response(
+                {"error": "No blueprint found for this project. Please upload a blueprint first."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        blueprint = project.blueprint
+        user = request.user
+        
+        # Get coordinates from request
+        x = request.data.get('x')
+        y = request.data.get('y')
+        
+        if x is None or y is None:
+            return Response(
+                {"error": "Coordinates (x, y) are required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validate coordinates (0-1)
+        try:
+            x = float(x)
+            y = float(y)
+            if not (0 <= x <= 1 and 0 <= y <= 1):
+                return Response(
+                    {"error": "Coordinates must be between 0 and 1."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except (ValueError, TypeError):
+            return Response(
+                {"error": "Invalid coordinates format."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get task data
+        task_data = {
+            'title': request.data.get('title', ''),
+            'description': request.data.get('description', ''),
+            'priority': request.data.get('priority', 'MEDIUM'),
+            'status': request.data.get('status', 'PENDING'),
+            'department': request.data.get('department'),
+            'assigned_to': request.data.get('assigned_to'),
+            'estimated_hours': request.data.get('estimated_hours'),
+            'due_date': request.data.get('due_date'),
+        }
+        
+        if not task_data['title']:
+            return Response(
+                {"error": "Task title is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create pin
+        pin_label = request.data.get('pin_label', task_data['title'])
+        pin = Pin.objects.create(
+            blueprint=blueprint,
+            x=x,
+            y=y,
+            label=pin_label
+        )
+        
+        # Create task
+        from tasks.models import Task
+        task = Task.objects.create(
+            project=project,
+            pin=pin,
+            title=task_data['title'],
+            description=task_data.get('description', ''),
+            priority=task_data.get('priority', 'MEDIUM'),
+            status=task_data.get('status', 'PENDING'),
+            department_id=task_data.get('department'),
+            assigned_to_id=task_data.get('assigned_to'),
+            estimated_hours=task_data.get('estimated_hours'),
+            due_date=task_data.get('due_date'),
+            created_by=user
+        )
+        
+        # Return both pin and task
+        from tasks.serializers import TaskSerializer
+        from .serializers import PinSerializer
+        
+        return Response({
+            'pin': PinSerializer(pin).data,
+            'task': TaskSerializer(task).data,
+            'message': 'Task created successfully from blueprint location.'
+        }, status=status.HTTP_201_CREATED)
     
     @action(detail=True, methods=['get'])
     def statistics(self, request, pk=None):

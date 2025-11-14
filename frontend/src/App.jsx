@@ -10,6 +10,7 @@ import Tasks from './pages/Tasks'
 import TaskDetail from './pages/TaskDetail'
 import Documents from './pages/Documents'
 import Reports from './pages/Reports'
+import Notifications from './pages/Notifications'
 import Profile from './pages/Profile'
 
 function PrivateRoute({ children }) {
@@ -38,6 +39,7 @@ function App() {
           <Route path="tasks/:id" element={<TaskDetail />} />
           <Route path="documents" element={<Documents />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="notifications" element={<Notifications />} />
           <Route path="profile" element={<Profile />} />
         </Route>
       </Routes>

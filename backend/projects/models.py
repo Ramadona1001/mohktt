@@ -27,6 +27,14 @@ class Project(models.Model):
         null=True,
         blank=True
     )
+    consultant = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='consulted_projects',
+        limit_choices_to={'role': 'CONSULTANT'}
+    )
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     address = models.TextField()
@@ -34,6 +42,7 @@ class Project(models.Model):
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
     estimated_budget = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    actual_budget = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     created_by = models.ForeignKey(
         'accounts.User',
         on_delete=models.SET_NULL,
@@ -55,6 +64,14 @@ class Blueprint(models.Model):
     """
     Blueprint model for project blueprints (PDF/JPG/PNG).
     """
+    REVIEW_STATUS_CHOICES = [
+        ('PENDING', 'Pending Review'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+        ('MODIFICATION_REQUESTED', 'Modification Requested'),
+        ('EXPIRED', 'Review Expired'),
+    ]
+    
     project = models.OneToOneField(
         Project,
         on_delete=models.CASCADE,
@@ -69,6 +86,21 @@ class Blueprint(models.Model):
     file_type = models.CharField(max_length=10, blank=True)
     width = models.IntegerField(null=True, blank=True, help_text="Image width in pixels")
     height = models.IntegerField(null=True, blank=True, help_text="Image height in pixels")
+    review_status = models.CharField(
+        max_length=25,
+        choices=REVIEW_STATUS_CHOICES,
+        default='PENDING'
+    )
+    review_deadline = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_blueprints'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_notes = models.TextField(blank=True)
     uploaded_by = models.ForeignKey(
         'accounts.User',
         on_delete=models.SET_NULL,
@@ -82,6 +114,21 @@ class Blueprint(models.Model):
     
     def __str__(self):
         return f"Blueprint for {self.project.name}"
+    
+    def is_overdue(self):
+        """Check if blueprint review is overdue."""
+        if self.review_deadline and self.review_status == 'PENDING':
+            from django.utils import timezone
+            return timezone.now() > self.review_deadline
+        return False
+    
+    def days_until_deadline(self):
+        """Get days until review deadline."""
+        if self.review_deadline:
+            from django.utils import timezone
+            delta = self.review_deadline - timezone.now()
+            return max(0, delta.days)
+        return None
 
 
 class Pin(models.Model):

@@ -8,7 +8,8 @@ from projects.models import Blueprint
 
 try:
     from .tasks import send_notification_email
-    CELERY_AVAILABLE = True
+    # Check if send_notification_email is actually a Celery task (has .delay method)
+    CELERY_AVAILABLE = hasattr(send_notification_email, 'delay')
 except ImportError:
     CELERY_AVAILABLE = False
     def send_notification_email(*args, **kwargs):
@@ -89,10 +90,16 @@ def document_uploaded(sender, instance, created, **kwargs):
                     )
         
         # Send email notification
-        if CELERY_AVAILABLE:
-            send_notification_email.delay(instance.id, 'DOCUMENT_UPLOADED')
-        else:
-            send_notification_email(instance.id, 'DOCUMENT_UPLOADED')
+        try:
+            if CELERY_AVAILABLE and hasattr(send_notification_email, 'delay'):
+                send_notification_email.delay(instance.id, 'DOCUMENT_UPLOADED')
+            else:
+                send_notification_email(instance.id, 'DOCUMENT_UPLOADED')
+        except Exception as e:
+            # Silently fail if email sending fails
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to send notification email: {e}")
 
 
 @receiver(post_save, sender=Document)
@@ -109,10 +116,16 @@ def document_reviewed(sender, instance, **kwargs):
         )
         
         # Send email notification
-        if CELERY_AVAILABLE:
-            send_notification_email.delay(instance.id, f'DOCUMENT_{instance.status}')
-        else:
-            send_notification_email(instance.id, f'DOCUMENT_{instance.status}')
+        try:
+            if CELERY_AVAILABLE and hasattr(send_notification_email, 'delay'):
+                send_notification_email.delay(instance.id, f'DOCUMENT_{instance.status}')
+            else:
+                send_notification_email(instance.id, f'DOCUMENT_{instance.status}')
+        except Exception as e:
+            # Silently fail if email sending fails
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to send notification email: {e}")
 
 
 @receiver(post_save, sender=Blueprint)
@@ -127,14 +140,31 @@ def blueprint_uploaded(sender, instance, created, **kwargs):
                     user=admin,
                     notification_type='BLUEPRINT_UPLOADED',
                     title=f'Blueprint Uploaded: {instance.project.name}',
-                    message=f'A blueprint has been uploaded for project "{instance.project.name}".',
+                    message=f'A blueprint has been uploaded for project "{instance.project.name}". Review deadline: {instance.review_deadline.strftime("%Y-%m-%d") if instance.review_deadline else "N/A"}.',
                     content_type=ContentType.objects.get_for_model(Blueprint),
                     object_id=instance.id
                 )
         
+        # Notify consultant if assigned
+        if instance.project.consultant:
+            Notification.objects.create(
+                user=instance.project.consultant,
+                notification_type='BLUEPRINT_UPLOADED',
+                title=f'Blueprint Uploaded: {instance.project.name}',
+                message=f'A blueprint has been uploaded for project "{instance.project.name}". Review deadline: {instance.review_deadline.strftime("%Y-%m-%d") if instance.review_deadline else "N/A"}.',
+                content_type=ContentType.objects.get_for_model(Blueprint),
+                object_id=instance.id
+            )
+        
         # Send email notification
-        if CELERY_AVAILABLE:
-            send_notification_email.delay(instance.id, 'BLUEPRINT_UPLOADED')
-        else:
-            send_notification_email(instance.id, 'BLUEPRINT_UPLOADED')
+        try:
+            if CELERY_AVAILABLE and hasattr(send_notification_email, 'delay'):
+                send_notification_email.delay(instance.id, 'BLUEPRINT_UPLOADED')
+            else:
+                send_notification_email(instance.id, 'BLUEPRINT_UPLOADED')
+        except Exception as e:
+            # Silently fail if email sending fails
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to send notification email: {e}")
 

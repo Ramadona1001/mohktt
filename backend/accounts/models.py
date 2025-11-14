@@ -12,6 +12,7 @@ class User(AbstractUser):
         ('CONTRACTOR', 'Contractor'),
         ('WORKER', 'Worker'),
         ('DOCUMENT_CONTROLLER', 'Document Controller'),
+        ('CONSULTANT', 'Consultant'),
     ]
     
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
@@ -67,6 +68,10 @@ class User(AbstractUser):
     @property
     def is_document_controller(self):
         return self.role == 'DOCUMENT_CONTROLLER'
+    
+    @property
+    def is_consultant(self):
+        return self.role == 'CONSULTANT'
 
 
 class Company(models.Model):

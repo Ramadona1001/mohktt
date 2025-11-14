@@ -18,17 +18,30 @@ class PinSerializer(serializers.ModelSerializer):
 class BlueprintSerializer(serializers.ModelSerializer):
     pins = PinSerializer(many=True, read_only=True)
     project_name = serializers.CharField(source='project.name', read_only=True)
+    uploaded_by_name = serializers.CharField(source='uploaded_by.get_full_name', read_only=True)
+    reviewed_by_name = serializers.CharField(source='reviewed_by.get_full_name', read_only=True)
+    is_overdue = serializers.SerializerMethodField()
+    days_until_deadline = serializers.SerializerMethodField()
     
     class Meta:
         model = Blueprint
         fields = ['id', 'project', 'project_name', 'file', 'file_type', 'width', 'height',
-                  'uploaded_by', 'uploaded_at', 'pins']
-        read_only_fields = ['id', 'uploaded_at', 'file_type']
+                  'review_status', 'review_deadline', 'reviewed_by', 'reviewed_by_name',
+                  'reviewed_at', 'review_notes', 'uploaded_by', 'uploaded_by_name',
+                  'uploaded_at', 'pins', 'is_overdue', 'days_until_deadline']
+        read_only_fields = ['id', 'uploaded_at', 'file_type', 'reviewed_at']
+    
+    def get_is_overdue(self, obj):
+        return obj.is_overdue()
+    
+    def get_days_until_deadline(self, obj):
+        return obj.days_until_deadline()
 
 
 class ProjectSerializer(serializers.ModelSerializer):
     company_name = serializers.CharField(source='company.name', read_only=True)
     contractor_name = serializers.CharField(source='contractor.name', read_only=True)
+    consultant_name = serializers.CharField(source='consultant.get_full_name', read_only=True)
     created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
     blueprint = BlueprintSerializer(read_only=True)
     task_count = serializers.SerializerMethodField()
@@ -38,10 +51,10 @@ class ProjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project
         fields = ['id', 'company', 'company_name', 'contractor', 'contractor_name',
-                  'name', 'description', 'address', 'status', 'start_date', 'end_date',
-                  'estimated_budget', 'created_by', 'created_by_name', 'blueprint',
-                  'task_count', 'completed_task_count', 'progress_percentage',
-                  'created_at', 'updated_at']
+                  'consultant', 'consultant_name', 'name', 'description', 'address',
+                  'status', 'start_date', 'end_date', 'estimated_budget', 'actual_budget',
+                  'created_by', 'created_by_name', 'blueprint', 'task_count',
+                  'completed_task_count', 'progress_percentage', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
     
     def get_task_count(self, obj):

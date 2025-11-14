@@ -1,17 +1,55 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import api from '../utils/api'
+import { getTasks, createTask, updateTaskStatus } from '../services/taskService'
 import { CheckSquare, Plus } from 'lucide-react'
 import { format } from 'date-fns'
+import toast from 'react-hot-toast'
 
 export default function Tasks() {
+  const queryClient = useQueryClient()
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    priority: 'MEDIUM',
+    status: 'PENDING',
+  })
+
   const { data, isLoading } = useQuery({
     queryKey: ['tasks'],
-    queryFn: async () => {
-      const response = await api.get('/tasks/')
-      return response.data
+    queryFn: () => getTasks(),
+  })
+
+  const createMutation = useMutation({
+    mutationFn: createTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['tasks'])
+      toast.success('Task created successfully!')
+      setShowCreateModal(false)
+      setFormData({ title: '', description: '', priority: 'MEDIUM', status: 'PENDING' })
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.detail || 'Failed to create task')
     },
   })
+
+  const statusMutation = useMutation({
+    mutationFn: ({ taskId, status }) => updateTaskStatus(taskId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['tasks'])
+      toast.success('Task status updated!')
+    },
+  })
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    createMutation.mutate(formData)
+  }
+
+  const handleStatusChange = (taskId, newStatus) => {
+    statusMutation.mutate({ taskId, status: newStatus })
+  }
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -45,11 +83,73 @@ export default function Tasks() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Tasks</h1>
-        <button className="btn btn-primary flex items-center space-x-2">
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="btn btn-primary flex items-center space-x-2"
+        >
           <Plus className="w-5 h-5" />
           <span>New Task</span>
         </button>
       </div>
+
+      {/* Create Task Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-2xl font-bold mb-4">Create New Task</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Task Title</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  rows="3"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                <select
+                  value={formData.priority}
+                  onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="LOW">Low</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="HIGH">High</option>
+                  <option value="URGENT">Urgent</option>
+                </select>
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  type="submit"
+                  disabled={createMutation.isLoading}
+                  className="btn btn-primary flex-1"
+                >
+                  {createMutation.isLoading ? 'Creating...' : 'Create Task'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="btn btn-secondary flex-1"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <div className="overflow-x-auto">
@@ -78,9 +178,16 @@ export default function Tasks() {
                   <td className="py-3 px-4 text-gray-600">{task.project_name}</td>
                   <td className="py-3 px-4 text-gray-600">{task.department_name || 'N/A'}</td>
                   <td className="py-3 px-4">
-                    <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(task.status)}`}>
-                      {task.status}
-                    </span>
+                    <select
+                      value={task.status}
+                      onChange={(e) => handleStatusChange(task.id, e.target.value)}
+                      className={`px-2 py-1 text-xs rounded-full border-0 ${getStatusColor(task.status)} cursor-pointer`}
+                    >
+                      <option value="PENDING">Pending</option>
+                      <option value="IN_PROGRESS">In Progress</option>
+                      <option value="COMPLETED">Completed</option>
+                      <option value="DELAYED">Delayed</option>
+                    </select>
                   </td>
                   <td className={`py-3 px-4 font-medium ${getPriorityColor(task.priority)}`}>
                     {task.priority}

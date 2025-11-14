@@ -55,6 +55,11 @@ class DocumentViewSet(viewsets.ModelViewSet):
         if not file:
             raise ValidationError({"file": "No file provided."})
         
+        # Validate project is provided
+        project = serializer.validated_data.get('project')
+        if not project:
+            raise ValidationError({"project": "Project is required."})
+        
         # Validate file size (documents use attachment limit)
         validate_file_size(file, MAX_ATTACHMENT_SIZE_MB)
         
@@ -73,6 +78,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
         side = 'CONTRACTOR' if user.is_contractor else 'COMPANY'
         
         serializer.save(
+            project=project,
             uploaded_by=user,
             file_name=file.name,
             file_type=file_type,

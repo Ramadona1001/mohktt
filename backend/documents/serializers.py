@@ -32,7 +32,8 @@ class DocumentSerializer(serializers.ModelSerializer):
                   'reviewed_by', 'reviewed_by_name', 'review_notes', 'uploaded_at',
                   'review_deadline', 'reviewed_at', 'versions', 'is_overdue',
                   'days_until_deadline']
-        read_only_fields = ['id', 'uploaded_at', 'file_type']
+        read_only_fields = ['id', 'uploaded_at', 'file_type', 'side', 'file_name', 
+                           'uploaded_by', 'contractor', 'company', 'status']
     
     def get_is_overdue(self, obj):
         return obj.is_overdue()
