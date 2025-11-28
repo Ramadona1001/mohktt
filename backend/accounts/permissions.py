@@ -79,3 +79,74 @@ class IsConsultantOrAdmin(permissions.BasePermission):
             request.user.is_authenticated and
             (request.user.is_consultant or request.user.is_company_admin)
         )
+
+
+class IsProjectManager(permissions.BasePermission):
+    """
+    Permission check for Project Manager role.
+    """
+    def has_permission(self, request, view):
+        return (
+            request.user and
+            request.user.is_authenticated and
+            request.user.is_project_manager
+        )
+
+
+class IsProjectManagerOrAdmin(permissions.BasePermission):
+    """
+    Permission check for Project Manager or Company Admin roles.
+    """
+    def has_permission(self, request, view):
+        return (
+            request.user and
+            request.user.is_authenticated and
+            (request.user.is_project_manager or request.user.is_company_admin)
+        )
+
+
+class IsSuperAdmin(permissions.BasePermission):
+    """
+    Permission check for Super Admin (Django is_superuser).
+    """
+    def has_permission(self, request, view):
+        return (
+            request.user and
+            request.user.is_authenticated and
+            request.user.is_superuser
+        )
+
+
+class IsCompanyAdminOrSuperAdmin(permissions.BasePermission):
+    """
+    Permission check for Company Admin or Super Admin.
+    """
+    def has_permission(self, request, view):
+        return (
+            request.user and
+            request.user.is_authenticated and
+            (request.user.is_company_admin or request.user.is_superuser)
+        )
+
+
+class IsOwnerOrAdminOrSuperAdmin(permissions.BasePermission):
+    """
+    Permission check for object owner, Company Admin, or Super Admin.
+    """
+    def has_object_permission(self, request, view, obj):
+        # Super admin has full access
+        if request.user.is_superuser:
+            return True
+        # Company admin has full access
+        if request.user.is_company_admin:
+            return True
+        
+        # Check if user owns the object
+        if hasattr(obj, 'user'):
+            return obj.user == request.user
+        elif hasattr(obj, 'created_by'):
+            return obj.created_by == request.user
+        elif obj == request.user:
+            return True
+        
+        return False

@@ -11,6 +11,7 @@ export default function BlueprintViewer({ blueprint, onPinClick, onAddPin, canEd
   const [mouseDownPos, setMouseDownPos] = useState(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
+  const [addPinMode, setAddPinMode] = useState(false);
 
   useEffect(() => {
     if (blueprint?.file) {
@@ -19,13 +20,20 @@ export default function BlueprintViewer({ blueprint, onPinClick, onAddPin, canEd
         setImageSize({ width: img.width, height: img.height });
         setImageLoaded(true);
         // Fit to screen initially
-        fitToScreen();
+        setTimeout(() => fitToScreen(), 100);
+      };
+      img.onerror = () => {
+        console.error('Failed to load blueprint image');
+        setImageLoaded(false);
       };
       // Construct full URL for blueprint image
       const imageUrl = blueprint.file.startsWith('http') 
         ? blueprint.file 
         : `http://localhost:8000${blueprint.file}`;
       img.src = imageUrl;
+    } else {
+      setImageSize({ width: 0, height: 0 });
+      setImageLoaded(false);
     }
   }, [blueprint]);
 
@@ -53,9 +61,16 @@ export default function BlueprintViewer({ blueprint, onPinClick, onAddPin, canEd
 
   const handleMouseDown = (e) => {
     if (e.button === 0) { // Left mouse button
+      // If clicking on a pin, don't start panning
+      if (e.target.closest('.pin-marker')) {
+        return;
+      }
       setMouseDownPos({ x: e.clientX, y: e.clientY });
-      setIsPanning(true);
-      setPanStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+      // Only start panning if not in add pin mode
+      if (!addPinMode) {
+        setIsPanning(true);
+        setPanStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+      }
     }
   };
 
@@ -75,21 +90,28 @@ export default function BlueprintViewer({ blueprint, onPinClick, onAddPin, canEd
   };
 
   const handleMouseUp = (e) => {
-    if (isPanning && mouseDownPos) {
+    if (mouseDownPos) {
       // Check if it was a click (not a drag)
       const moveDistance = Math.sqrt(
         Math.pow(e.clientX - mouseDownPos.x, 2) + Math.pow(e.clientY - mouseDownPos.y, 2)
       );
-      if (moveDistance <= 5 && canEdit && onAddPin) {
-        // It was a click, not a drag - trigger add pin
-        const rect = canvasRef.current.getBoundingClientRect();
-        const x = (e.clientX - rect.left - position.x) / scale;
-        const y = (e.clientY - rect.top - position.y) / scale;
+      
+      // If in add pin mode or it was a small movement, treat as click
+      if ((addPinMode || moveDistance <= 5) && canEdit && onAddPin && imageSize.width > 0 && imageSize.height > 0) {
+        // It was a click - trigger add pin
+        const rect = containerRef.current.getBoundingClientRect();
+        const containerX = e.clientX - rect.left;
+        const containerY = e.clientY - rect.top;
         
-        // Normalize coordinates (0-1)
-        const normalizedX = x / imageSize.width;
-        const normalizedY = y / imageSize.height;
+        // Calculate position relative to the transformed canvas
+        const canvasX = (containerX - position.x) / scale;
+        const canvasY = (containerY - position.y) / scale;
         
+        // Normalize coordinates (0-1) based on actual image dimensions
+        const normalizedX = canvasX / imageSize.width;
+        const normalizedY = canvasY / imageSize.height;
+        
+        // Validate coordinates are within bounds
         if (normalizedX >= 0 && normalizedX <= 1 && normalizedY >= 0 && normalizedY <= 1) {
           onAddPin(normalizedX, normalizedY);
         }
@@ -141,9 +163,12 @@ export default function BlueprintViewer({ blueprint, onPinClick, onAddPin, canEd
         </button>
         {canEdit && onAddPin && (
           <button
-            onClick={() => setIsPanning(false)}
-            className="p-2 hover:bg-gray-200 rounded"
-            title="Add Pin"
+            onClick={() => {
+              setAddPinMode(!addPinMode);
+              setIsPanning(false);
+            }}
+            className={`p-2 rounded ${addPinMode ? 'bg-blue-500 text-white' : 'hover:bg-gray-200'}`}
+            title={addPinMode ? "Click to add pins (Active)" : "Click to add pins"}
           >
             <Pin className="w-5 h-5" />
           </button>
@@ -156,7 +181,7 @@ export default function BlueprintViewer({ blueprint, onPinClick, onAddPin, canEd
       {/* Canvas Container */}
       <div
         ref={containerRef}
-        className="relative w-full h-[600px] overflow-hidden cursor-move"
+        className={`relative w-full h-[600px] overflow-hidden ${addPinMode ? 'cursor-crosshair' : 'cursor-move'}`}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -197,7 +222,7 @@ export default function BlueprintViewer({ blueprint, onPinClick, onAddPin, canEd
                 onPinClick?.(pin);
               }}
             >
-              <div className="w-6 h-6 bg-red-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
+              <div className="pin-marker w-6 h-6 bg-red-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center">
                 <span className="text-white text-xs font-bold">{pin.id}</span>
               </div>
               {pin.label && (
@@ -212,8 +237,12 @@ export default function BlueprintViewer({ blueprint, onPinClick, onAddPin, canEd
 
       {/* Instructions */}
       {canEdit && (
-        <div className="absolute bottom-4 left-4 bg-blue-500/90 text-white px-4 py-2 rounded-lg text-sm">
-          Click anywhere on the blueprint to create a task
+        <div className={`absolute bottom-4 left-4 px-4 py-2 rounded-lg text-sm ${
+          addPinMode ? 'bg-green-500/90 text-white' : 'bg-blue-500/90 text-white'
+        }`}>
+          {addPinMode 
+            ? '✓ Pin mode active - Click on blueprint to add task' 
+            : 'Click the pin icon to enable adding tasks'}
         </div>
       )}
     </div>

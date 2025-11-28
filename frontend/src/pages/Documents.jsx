@@ -117,12 +117,12 @@ export default function Documents() {
   if (isLoading) return <div className="text-center py-12">Loading documents...</div>
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Documents</h1>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Documents</h1>
         <button
           onClick={() => setShowUploadModal(true)}
-          className="btn btn-primary flex items-center space-x-2"
+          className="btn btn-primary flex items-center space-x-2 w-full sm:w-auto"
         >
           <Upload className="w-5 h-5" />
           <span>Upload Document</span>
@@ -131,9 +131,9 @@ export default function Documents() {
 
       {/* Upload Document Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4">Upload Document</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">Upload Document</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
@@ -190,7 +190,7 @@ export default function Documents() {
                   </p>
                 )}
               </div>
-              <div className="flex space-x-3">
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                 <button
                   type="submit"
                   disabled={uploadMutation.isLoading}
@@ -213,41 +213,41 @@ export default function Documents() {
 
       <div className="card">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[800px]">
             <thead>
               <tr className="border-b">
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Title</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Project</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Side</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Uploaded</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Deadline</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Actions</th>
+                <th className="text-left py-3 px-3 sm:px-4 font-semibold text-gray-700 text-xs sm:text-sm">Title</th>
+                <th className="text-left py-3 px-3 sm:px-4 font-semibold text-gray-700 text-xs sm:text-sm">Project</th>
+                <th className="text-left py-3 px-3 sm:px-4 font-semibold text-gray-700 text-xs sm:text-sm">Side</th>
+                <th className="text-left py-3 px-3 sm:px-4 font-semibold text-gray-700 text-xs sm:text-sm">Status</th>
+                <th className="text-left py-3 px-3 sm:px-4 font-semibold text-gray-700 text-xs sm:text-sm">Uploaded</th>
+                <th className="text-left py-3 px-3 sm:px-4 font-semibold text-gray-700 text-xs sm:text-sm">Deadline</th>
+                <th className="text-left py-3 px-3 sm:px-4 font-semibold text-gray-700 text-xs sm:text-sm">Actions</th>
               </tr>
             </thead>
             <tbody>
               {(data?.results || data || []).map((doc) => (
                 <tr key={doc.id} className="border-b hover:bg-gray-50">
-                  <td className="py-3 px-4">
+                  <td className="py-3 px-3 sm:px-4">
                     <div className="flex items-center space-x-2">
-                      <FileText className="w-5 h-5 text-gray-400" />
-                      <span className="font-medium">{doc.title}</span>
+                      <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
+                      <span className="font-medium text-sm sm:text-base truncate">{doc.title}</span>
                     </div>
                   </td>
-                  <td className="py-3 px-4 text-gray-600">{doc.project_name}</td>
-                  <td className="py-3 px-4 text-gray-600">{doc.side}</td>
-                  <td className="py-3 px-4">
+                  <td className="py-3 px-3 sm:px-4 text-gray-600 text-sm sm:text-base">{doc.project_name}</td>
+                  <td className="py-3 px-3 sm:px-4 text-gray-600 text-sm sm:text-base">{doc.side}</td>
+                  <td className="py-3 px-3 sm:px-4">
                     <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(doc.status)}`}>
                       {doc.status}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-gray-600">
+                  <td className="py-3 px-3 sm:px-4 text-gray-600 text-xs sm:text-sm">
                     {format(new Date(doc.uploaded_at), 'MMM dd, yyyy')}
                   </td>
-                  <td className="py-3 px-4 text-gray-600">
+                  <td className="py-3 px-3 sm:px-4 text-gray-600 text-xs sm:text-sm">
                     {doc.review_deadline ? format(new Date(doc.review_deadline), 'MMM dd, yyyy') : 'N/A'}
                   </td>
-                  <td className="py-3 px-4">
+                  <td className="py-3 px-3 sm:px-4">
                     {doc.status === 'PENDING' && (
                       <div className="flex space-x-2">
                         <button

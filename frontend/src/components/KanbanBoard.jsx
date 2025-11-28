@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { GripVertical, Calendar, User } from 'lucide-react'
+import TaskDetailModal from './TaskDetailModal'
 
 const STATUS_COLUMNS = [
   { id: 'PENDING', title: 'Pending', color: 'bg-gray-100 border-gray-300' },
@@ -20,6 +20,7 @@ const PRIORITY_COLORS = {
 export default function KanbanBoard({ tasks, onStatusChange, isLoading }) {
   const [draggedTask, setDraggedTask] = useState(null)
   const [draggedOverColumn, setDraggedOverColumn] = useState(null)
+  const [selectedTaskId, setSelectedTaskId] = useState(null)
 
   const handleDragStart = (e, task) => {
     setDraggedTask(task)
@@ -111,13 +112,15 @@ export default function KanbanBoard({ tasks, onStatusChange, isLoading }) {
                   className="bg-white rounded-lg shadow-sm p-4 cursor-grab active:cursor-grabbing hover:shadow-md transition-all border border-gray-200 group"
                 >
                   <div className="flex items-start justify-between mb-2">
-                    <Link
-                      to={`/tasks/${task.id}`}
-                      className="font-medium text-gray-900 hover:text-primary-600 flex-1"
-                      onClick={(e) => e.stopPropagation()}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedTaskId(task.id)
+                      }}
+                      className="font-medium text-gray-900 hover:text-primary-600 flex-1 text-left"
                     >
                       {task.title}
-                    </Link>
+                    </button>
                     <GripVertical className="w-4 h-4 text-gray-400 flex-shrink-0 ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
 
@@ -180,6 +183,14 @@ export default function KanbanBoard({ tasks, onStatusChange, isLoading }) {
           </div>
         )
       })}
+
+      {/* Task Detail Modal */}
+      {selectedTaskId && (
+        <TaskDetailModal
+          taskId={selectedTaskId}
+          onClose={() => setSelectedTaskId(null)}
+        />
+      )}
     </div>
   )
 }

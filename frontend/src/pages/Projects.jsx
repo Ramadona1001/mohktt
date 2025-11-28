@@ -42,12 +42,12 @@ export default function Projects() {
   if (error) return <div className="text-center py-12 text-red-600">Error loading projects</div>
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Projects</h1>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Projects</h1>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="btn btn-primary flex items-center space-x-2"
+          className="btn btn-primary flex items-center space-x-2 w-full sm:w-auto"
         >
           <Plus className="w-5 h-5" />
           <span>New Project</span>
@@ -56,9 +56,9 @@ export default function Projects() {
 
       {/* Create Project Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4">Create New Project</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">Create New Project</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
@@ -102,7 +102,7 @@ export default function Projects() {
                   <option value="COMPLETED">Completed</option>
                 </select>
               </div>
-              <div className="flex space-x-3">
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                 <button
                   type="submit"
                   disabled={createMutation.isLoading}
@@ -123,7 +123,7 @@ export default function Projects() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {data?.results?.map((project) => (
           <Link
             key={project.id}

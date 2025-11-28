@@ -61,7 +61,25 @@ class Command(BaseCommand):
             }
         )
 
-        # Create company admin
+        # Create super admin (separate from company admin)
+        super_admin, _ = User.objects.get_or_create(
+            username='superadmin',
+            defaults={
+                'email': 'superadmin@mukhattat.com',
+                'first_name': 'Super',
+                'last_name': 'Admin',
+                'role': 'COMPANY_ADMIN',  # Can be any role, but is_superuser gives all access
+                'company': None,  # Super admin doesn't belong to a company
+                'is_active': True,
+                'is_staff': True,
+                'is_superuser': True
+            }
+        )
+        if not super_admin.check_password('superadmin123'):
+            super_admin.set_password('superadmin123')
+            super_admin.save()
+
+        # Create company admin (separate user, not superuser)
         admin_user, _ = User.objects.get_or_create(
             username='admin',
             defaults={
@@ -71,8 +89,8 @@ class Command(BaseCommand):
                 'role': 'COMPANY_ADMIN',
                 'company': company,
                 'is_active': True,
-                'is_staff': True,
-                'is_superuser': True
+                'is_staff': False,
+                'is_superuser': False
             }
         )
         if not admin_user.check_password('admin123'):
@@ -226,6 +244,7 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS('✅ Seed data created successfully!'))
         self.stdout.write('\n📋 Default Users:')
+        self.stdout.write("   Super Admin: username='superadmin', password='superadmin123'")
         self.stdout.write("   Company Admin: username='admin', password='admin123'")
         self.stdout.write("   Contractor: username='contractor', password='contractor123'")
         self.stdout.write("   Worker 1: username='worker1', password='worker123'")

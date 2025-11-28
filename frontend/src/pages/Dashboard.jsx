@@ -52,13 +52,13 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Welcome back, {user?.first_name}!</h1>
-        <p className="text-gray-600 mt-2">Here's an overview of your projects and tasks.</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Welcome back, {user?.first_name}!</h1>
+        <p className="text-sm sm:text-base text-gray-600 mt-2">Here's an overview of your projects and tasks.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {stats.map((stat) => (
           <div key={stat.name} className="card">
             <div className="flex items-center justify-between">
@@ -75,12 +75,12 @@ export default function Dashboard() {
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Project Status Pie Chart */}
         <div className="card">
-          <h2 className="text-xl font-semibold mb-4">Project Status Distribution</h2>
+          <h2 className="text-lg sm:text-xl font-semibold mb-4">Project Status Distribution</h2>
           {dashboardSummary?.project_status_breakdown && dashboardSummary.project_status_breakdown.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
               <PieChart>
                 <Pie
                   data={dashboardSummary.project_status_breakdown}
@@ -110,9 +110,9 @@ export default function Dashboard() {
 
         {/* Task Status Pie Chart */}
         <div className="card">
-          <h2 className="text-xl font-semibold mb-4">Task Status Distribution</h2>
+          <h2 className="text-lg sm:text-xl font-semibold mb-4">Task Status Distribution</h2>
           {taskStats && (
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
               <PieChart>
                 <Pie
                   data={[
@@ -148,12 +148,12 @@ export default function Dashboard() {
       </div>
 
       {/* Line Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Project Progress Over Time */}
         <div className="card">
-          <h2 className="text-xl font-semibold mb-4">Project Progress Over Time</h2>
+          <h2 className="text-lg sm:text-xl font-semibold mb-4">Project Progress Over Time</h2>
           {dashboardSummary?.progress_over_time && dashboardSummary.progress_over_time.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
               <LineChart data={dashboardSummary.progress_over_time}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
@@ -190,9 +190,9 @@ export default function Dashboard() {
 
         {/* Tasks Over Time */}
         <div className="card">
-          <h2 className="text-xl font-semibold mb-4">Tasks Over Time</h2>
+          <h2 className="text-lg sm:text-xl font-semibold mb-4">Tasks Over Time</h2>
           {dashboardSummary?.progress_over_time && dashboardSummary.progress_over_time.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
               <LineChart data={dashboardSummary.progress_over_time}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
@@ -229,9 +229,9 @@ export default function Dashboard() {
       </div>
 
       {/* Additional Stats */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <div className="card">
-          <h2 className="text-xl font-semibold mb-4">Recent Projects</h2>
+          <h2 className="text-lg sm:text-xl font-semibold mb-4">Recent Projects</h2>
           <div className="space-y-3">
             {projectStats?.results?.slice(0, 5).map((project) => (
               <div key={project.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -252,7 +252,7 @@ export default function Dashboard() {
         </div>
 
         <div className="card">
-          <h2 className="text-xl font-semibold mb-4">Task Overview</h2>
+          <h2 className="text-lg sm:text-xl font-semibold mb-4">Task Overview</h2>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-gray-600">Pending</span>

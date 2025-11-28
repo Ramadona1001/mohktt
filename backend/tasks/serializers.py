@@ -65,7 +65,13 @@ class TaskSerializer(serializers.ModelSerializer):
     def get_is_overdue(self, obj):
         if obj.due_date and obj.status not in ['COMPLETED']:
             from django.utils import timezone
-            return timezone.now() > obj.due_date
+            from django.utils.dateparse import parse_datetime
+            # Handle both datetime objects and string representations
+            due_date = obj.due_date
+            if isinstance(due_date, str):
+                due_date = parse_datetime(due_date)
+            if due_date:
+                return timezone.now() > due_date
         return False
 
 

@@ -4,7 +4,9 @@ from django.contrib.contenttypes.models import ContentType
 from .models import Notification
 from tasks.models import Task
 from documents.models import Document
-from projects.models import Blueprint
+from projects.models import Blueprint, Project
+from accounts.models import Company, User, Contractor
+from departments.models import Department
 
 try:
     from .tasks import send_notification_email

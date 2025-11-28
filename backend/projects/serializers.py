@@ -5,14 +5,20 @@ from accounts.serializers import CompanySerializer, ContractorSerializer
 
 class PinSerializer(serializers.ModelSerializer):
     task_count = serializers.SerializerMethodField()
+    tasks = serializers.SerializerMethodField()
     
     class Meta:
         model = Pin
-        fields = ['id', 'blueprint', 'x', 'y', 'label', 'task_count', 'created_at']
+        fields = ['id', 'blueprint', 'x', 'y', 'label', 'task_count', 'tasks', 'created_at']
         read_only_fields = ['id', 'created_at']
     
     def get_task_count(self, obj):
         return obj.tasks.count()
+    
+    def get_tasks(self, obj):
+        from tasks.serializers import TaskListSerializer
+        tasks = obj.tasks.all()[:5]  # Limit to 5 tasks to avoid large payloads
+        return TaskListSerializer(tasks, many=True).data
 
 
 class BlueprintSerializer(serializers.ModelSerializer):

@@ -93,10 +93,11 @@ export default function Register() {
               className="input"
             >
               <option value="COMPANY_ADMIN">Company Admin</option>
+              <option value="PROJECT_MANAGER">Project Manager</option>
               <option value="CONTRACTOR">Contractor</option>
             </select>
           </div>
-          {formData.role === 'COMPANY_ADMIN' && (
+          {(formData.role === 'COMPANY_ADMIN' || formData.role === 'PROJECT_MANAGER') && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
               <input

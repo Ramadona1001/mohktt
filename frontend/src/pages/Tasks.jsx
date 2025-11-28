@@ -1,16 +1,17 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
 import { getTasks, createTask, updateTaskStatus } from '../services/taskService'
 import { CheckSquare, Plus, LayoutGrid, List } from 'lucide-react'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
 import KanbanBoard from '../components/KanbanBoard'
+import TaskDetailModal from '../components/TaskDetailModal'
 
 export default function Tasks() {
   const queryClient = useQueryClient()
   const [viewMode, setViewMode] = useState('kanban') // 'kanban' or 'list'
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [selectedTaskId, setSelectedTaskId] = useState(null)
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -85,10 +86,10 @@ export default function Tasks() {
   if (isLoading) return <div className="text-center py-12">Loading tasks...</div>
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Tasks</h1>
-        <div className="flex items-center space-x-3">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Tasks</h1>
+        <div className="flex items-center space-x-3 w-full sm:w-auto">
           {/* View Mode Toggle */}
           <div className="flex items-center bg-gray-100 rounded-lg p-1">
             <button
@@ -116,19 +117,20 @@ export default function Tasks() {
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="btn btn-primary flex items-center space-x-2"
+            className="btn btn-primary flex items-center space-x-2 flex-1 sm:flex-initial"
           >
             <Plus className="w-5 h-5" />
-            <span>New Task</span>
+            <span className="hidden sm:inline">New Task</span>
+            <span className="sm:hidden">New</span>
           </button>
         </div>
       </div>
 
       {/* Create Task Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4">Create New Task</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl sm:text-2xl font-bold mb-4">Create New Task</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Task Title</label>
@@ -162,7 +164,7 @@ export default function Tasks() {
                   <option value="URGENT">Urgent</option>
                 </select>
               </div>
-              <div className="flex space-x-3">
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                 <button
                   type="submit"
                   disabled={createMutation.isLoading}
@@ -210,17 +212,14 @@ export default function Tasks() {
               <tbody>
                 {data?.results?.map((task) => (
                   <tr key={task.id} className="border-b hover:bg-gray-50">
-                    <td className="py-3 px-4">
-                      <Link
-                        to={`/tasks/${task.id}`}
-                        className="font-medium text-primary-600 hover:text-primary-700"
-                      >
+                    <td className="py-3 px-4 cursor-pointer" onClick={() => setSelectedTaskId(task.id)}>
+                      <button className="font-medium text-primary-600 hover:text-primary-700 text-left">
                         {task.title}
-                      </Link>
+                      </button>
                     </td>
                     <td className="py-3 px-4 text-gray-600">{task.project_name}</td>
                     <td className="py-3 px-4 text-gray-600">{task.department_name || 'N/A'}</td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
                       <select
                         value={task.status}
                         onChange={(e) => handleStatusChange(task.id, e.target.value)}
@@ -251,6 +250,14 @@ export default function Tasks() {
           <CheckSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-600">No tasks found.</p>
         </div>
+      )}
+
+      {/* Task Detail Modal */}
+      {selectedTaskId && (
+        <TaskDetailModal
+          taskId={selectedTaskId}
+          onClose={() => setSelectedTaskId(null)}
+        />
       )}
     </div>
   )

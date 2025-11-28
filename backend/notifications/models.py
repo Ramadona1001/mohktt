@@ -20,6 +20,21 @@ class Notification(models.Model):
         ('BLUEPRINT_MODIFICATION_REQUESTED', 'Blueprint Modification Requested'),
         ('COMMENT_ADDED', 'Comment Added'),
         ('DEADLINE_APPROACHING', 'Deadline Approaching'),
+        # Super Admin notifications
+        ('NEW_COMPANY', 'New Company Registered'),
+        ('COMPANY_ACTIVATED', 'Company Activated'),
+        ('COMPANY_DEACTIVATED', 'Company Deactivated'),
+        ('NEW_USER', 'New User Created'),
+        ('USER_ROLE_CHANGED', 'User Role Changed'),
+        ('NEW_CONTRACTOR', 'New Contractor Created'),
+        ('NEW_DEPARTMENT', 'New Department Created'),
+        ('WORKERS_ASSIGNED', 'Workers Assigned to Department'),
+        ('NEW_PROJECT', 'New Project Created'),
+        ('PROJECT_UPDATED', 'Project Updated'),
+        ('NEW_TASK', 'New Task Created'),
+        ('TASK_STATUS_CHANGED', 'Task Status Changed'),
+        ('NEW_DOCUMENT', 'New Document Uploaded'),
+        ('DOCUMENT_STATUS_CHANGED', 'Document Status Changed'),
     ]
     
     user = models.ForeignKey(

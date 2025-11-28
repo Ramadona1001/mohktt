@@ -7,7 +7,7 @@ from .serializers import (
     ProjectSerializer, ProjectListSerializer,
     BlueprintSerializer, PinSerializer
 )
-from accounts.permissions import IsCompanyAdmin, IsContractorOrAdmin
+from accounts.permissions import IsCompanyAdmin, IsContractorOrAdmin, IsProjectManagerOrAdmin
 from django.utils import timezone
 from datetime import timedelta
 from django.conf import settings
@@ -39,6 +39,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.is_company_admin:
             return Project.objects.filter(company=user.company)
+        elif user.is_project_manager:
+            # Project managers see projects from their company
+            return Project.objects.filter(company=user.company)
         elif user.is_contractor:
             return Project.objects.filter(contractor=user.contractor)
         elif user.is_worker:
@@ -52,12 +55,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
     
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [permissions.IsAuthenticated(), IsCompanyAdmin()]
+            return [permissions.IsAuthenticated(), IsProjectManagerOrAdmin()]
         return super().get_permissions()
     
     def perform_create(self, serializer):
         user = self.request.user
-        if user.is_company_admin:
+        if user.is_company_admin or user.is_project_manager:
             serializer.save(company=user.company, created_by=user)
     
     @action(detail=True, methods=['post'])
@@ -93,10 +96,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if hasattr(project, 'blueprint'):
             # Update existing blueprint
             blueprint = project.blueprint
-            # Delete old file if it exists
-            if blueprint.file:
-                blueprint.file.delete(save=False)
+            # Store old file path before replacing
+            old_file = blueprint.file
+            old_file_path = old_file.path if old_file else None
             
+            # Assign new file first
             blueprint.file = file
             blueprint.file_type = file_type
             blueprint.uploaded_by = request.user
@@ -107,6 +111,28 @@ class ProjectViewSet(viewsets.ModelViewSet):
             blueprint.review_notes = ''
             blueprint.uploaded_at = timezone.now()
             blueprint.save()
+            
+            # Try to delete old file after saving new one
+            # This avoids Windows file locking issues
+            if old_file_path and old_file:
+                try:
+                    # Close the file handle first if possible
+                    if hasattr(old_file, 'close'):
+                        try:
+                            old_file.close()
+                        except:
+                            pass
+                    # Try to delete the file
+                    if os.path.exists(old_file_path):
+                        os.remove(old_file_path)
+                except (PermissionError, OSError) as e:
+                    # Log the error but don't fail the request
+                    # The new file is already saved, old file will be cleaned up later
+                    logger.warning(
+                        f"Could not delete old blueprint file {old_file_path}: {e}. "
+                        "File may be in use. It will be cleaned up later."
+                    )
+            
             created = False
         else:
             # Create new blueprint
@@ -353,6 +379,22 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Parse due_date if provided
+        due_date = None
+        if task_data.get('due_date'):
+            from django.utils.dateparse import parse_datetime
+            from django.utils import timezone as tz
+            if isinstance(task_data['due_date'], str):
+                parsed = parse_datetime(task_data['due_date'])
+                if parsed:
+                    # Make timezone-aware if it's naive
+                    if tz.is_naive(parsed):
+                        due_date = tz.make_aware(parsed)
+                    else:
+                        due_date = parsed
+            else:
+                due_date = task_data['due_date']
+        
         # Create pin
         pin_label = request.data.get('pin_label', task_data['title'])
         pin = Pin.objects.create(
@@ -374,7 +416,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             department_id=task_data.get('department'),
             assigned_to_id=task_data.get('assigned_to'),
             estimated_hours=task_data.get('estimated_hours'),
-            due_date=task_data.get('due_date'),
+            due_date=due_date,
             created_by=user
         )
         

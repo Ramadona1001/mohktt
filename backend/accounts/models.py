@@ -9,6 +9,7 @@ class User(AbstractUser):
     """
     ROLE_CHOICES = [
         ('COMPANY_ADMIN', 'Company Admin'),
+        ('PROJECT_MANAGER', 'Project Manager'),
         ('CONTRACTOR', 'Contractor'),
         ('WORKER', 'Worker'),
         ('DOCUMENT_CONTROLLER', 'Document Controller'),
@@ -72,6 +73,10 @@ class User(AbstractUser):
     @property
     def is_consultant(self):
         return self.role == 'CONSULTANT'
+    
+    @property
+    def is_project_manager(self):
+        return self.role == 'PROJECT_MANAGER'
 
 
 class Company(models.Model):
@@ -83,6 +88,8 @@ class Company(models.Model):
     phone_number = models.CharField(max_length=17, blank=True)
     address = models.TextField(blank=True)
     logo = models.ImageField(upload_to='companies/logos/', blank=True, null=True)
+    password = models.CharField(max_length=128, blank=True, null=True, help_text="Company login password")
+    other_info = models.TextField(blank=True, null=True, help_text="Additional company information")
     subscription_plan = models.ForeignKey(
         'subscriptions.SubscriptionPlan',
         on_delete=models.SET_NULL,
@@ -128,4 +135,70 @@ class Contractor(models.Model):
     
     def __str__(self):
         return f"{self.name} ({self.company.name})"
+
+
+class RolePermission(models.Model):
+    """
+    Model to store role-based permissions dynamically.
+    Allows Super Admin to manage permissions for each role.
+    """
+    ROLE_CHOICES = [
+        ('SUPER_ADMIN', 'Super Admin'),
+        ('COMPANY_ADMIN', 'Company Admin'),
+        ('PROJECT_MANAGER', 'Project Manager'),
+        ('CONTRACTOR', 'Contractor'),
+        ('WORKER', 'Worker'),
+        ('DOCUMENT_CONTROLLER', 'Document Controller'),
+        ('CONSULTANT', 'Consultant'),
+    ]
+    
+    PERMISSION_CATEGORIES = [
+        ('companies', 'Companies'),
+        ('users', 'Users'),
+        ('contractors', 'Contractors'),
+        ('projects', 'Projects'),
+        ('tasks', 'Tasks'),
+        ('documents', 'Documents'),
+        ('reports', 'Reports'),
+        ('settings', 'Settings'),
+    ]
+    
+    PERMISSION_ACTIONS = [
+        ('create', 'Create'),
+        ('read', 'Read'),
+        ('update', 'Update'),
+        ('delete', 'Delete'),
+        ('activate', 'Activate'),
+        ('assign_role', 'Assign Role'),
+        ('assign_company', 'Assign Company'),
+        ('approve', 'Approve'),
+        ('reject', 'Reject'),
+        ('view_all', 'View All'),
+        ('export', 'Export'),
+        ('manage_roles', 'Manage Roles'),
+        ('manage_permissions', 'Manage Permissions'),
+        ('system_settings', 'System Settings'),
+        ('company_settings', 'Company Settings'),
+        ('assign', 'Assign'),
+        ('upload', 'Upload'),
+        ('comment', 'Comment'),
+    ]
+    
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    category = models.CharField(max_length=20, choices=PERMISSION_CATEGORIES)
+    action = models.CharField(max_length=20, choices=PERMISSION_ACTIONS)
+    is_allowed = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'role_permissions'
+        unique_together = [['role', 'category', 'action']]
+        ordering = ['role', 'category', 'action']
+        indexes = [
+            models.Index(fields=['role', 'category']),
+        ]
+    
+    def __str__(self):
+        return f"{self.get_role_display()} - {self.get_category_display()} - {self.get_action_display()}"
 

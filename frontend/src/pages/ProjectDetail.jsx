@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getProject, uploadBlueprint, getProjectStatistics, createTaskFromLocation } from '../services/projectService'
 import { getDepartments } from '../services/departmentService'
 import { getUsers } from '../services/authService'
 import BlueprintViewer from '../components/BlueprintViewer'
-import { Upload, X, MapPin } from 'lucide-react'
+import TaskDetailModal from '../components/TaskDetailModal'
+import { Upload, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function ProjectDetail() {
@@ -15,6 +16,7 @@ export default function ProjectDetail() {
   const [showTaskModal, setShowTaskModal] = useState(false)
   const [selectedFile, setSelectedFile] = useState(null)
   const [clickedLocation, setClickedLocation] = useState(null)
+  const [selectedTaskId, setSelectedTaskId] = useState(null)
   const [taskFormData, setTaskFormData] = useState({
     title: '',
     description: '',
@@ -189,10 +191,13 @@ export default function ProjectDetail() {
             onAddPin={handleBlueprintClick}
             canEdit={true}
             onPinClick={(pin) => {
-              // Navigate to task if pin has a task
-              if (pin.task_count > 0) {
-                // Could navigate to task detail or show task info
-                toast.info(`Pin has ${pin.task_count} task(s)`)
+              // If pin has tasks, open the first task in modal
+              if (pin.task_count > 0 && pin.tasks && pin.tasks.length > 0) {
+                setSelectedTaskId(pin.tasks[0].id)
+              } else if (pin.task_count > 0) {
+                // If we only have task_count but not tasks array, fetch the task
+                // For now, just show a message
+                toast.info(`Pin has ${pin.task_count} task(s). Click on the pin to view tasks.`)
               }
             }}
           />
@@ -203,6 +208,14 @@ export default function ProjectDetail() {
           </div>
         )}
       </div>
+
+      {/* Task Detail Modal */}
+      {selectedTaskId && (
+        <TaskDetailModal
+          taskId={selectedTaskId}
+          onClose={() => setSelectedTaskId(null)}
+        />
+      )}
 
       {/* Create Task from Blueprint Location Modal */}
       {showTaskModal && clickedLocation && (
